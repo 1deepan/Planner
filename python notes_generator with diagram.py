@@ -1,5 +1,5 @@
 # ==========================================
-# 🤖 DEEPAN AI - FINAL WORKING VERSION
+# 🤖 DEEPAN AI - FINAL VERSION WITH OCR
 # ==========================================
 
 import streamlit as st
@@ -13,13 +13,17 @@ from duckduckgo_search import DDGS
 from gtts import gTTS
 import base64
 
+# OCR
+import pytesseract
+from PIL import Image
+
 # ==========================================
-# 🔐 OPENAI SETUP (FIXED)
+# 🔐 OPENAI SETUP
 # ==========================================
 
 from openai import OpenAI
 
-api_key = os.getenv("OPENAI_API_KEY")   # ✅ CORRECT
+api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key) if api_key else None
 
 # ==========================================
@@ -36,44 +40,36 @@ st.set_page_config(page_title="Deepan AI", layout="wide")
 
 st.markdown("""
 <style>
-body { background-color:#0a0f1c; color:white; }
-
-.title {
-    text-align:center;
-    font-size:40px;
-    color:#00e6ff;
-    text-shadow:0 0 15px #00e6ff;
-}
-
-.chat-user {
-    background:#007cf0;
-    padding:10px;
-    border-radius:10px;
-    margin:5px;
-    text-align:right;
-}
-
-.chat-ai {
-    background:#111827;
-    border:1px solid #00e6ff;
-    padding:10px;
-    border-radius:10px;
-    margin:5px;
-}
+body { background:#0a0f1c; color:white; }
+.title { text-align:center; font-size:40px; color:#00e6ff; text-shadow:0 0 15px #00e6ff;}
+.chat-user {background:#007cf0;padding:10px;border-radius:10px;margin:5px;text-align:right;}
+.chat-ai {background:#111827;border:1px solid #00e6ff;padding:10px;border-radius:10px;margin:5px;}
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("<div class='title'>🤖 DEEPAN AI</div>", unsafe_allow_html=True)
 
 # ==========================================
-# 📄 FILE READER
+# 📄 PDF + OCR READER
 # ==========================================
 
 def read_pdf(file):
     text = ""
     doc = fitz.open(stream=file.read(), filetype="pdf")
+
     for page in doc:
-        text += page.get_text()
+        page_text = page.get_text()
+
+        # If normal text exists
+        if page_text.strip():
+            text += page_text
+        else:
+            # OCR fallback
+            pix = page.get_pixmap()
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            ocr_text = pytesseract.image_to_string(img)
+            text += ocr_text
+
     return text
 
 # ==========================================
@@ -81,16 +77,25 @@ def read_pdf(file):
 # ==========================================
 
 def split_text(text):
-    return [c.strip() for c in text.split(".") if len(c) > 40]
+    chunks = [c.strip() for c in text.split(".") if len(c) > 40]
+    return chunks if chunks else ["No valid content found"]
 
 def embed_chunks(chunks):
+    if not chunks:
+        return np.array([])
     return embed_model.encode(chunks)
 
 def search_chunks(query, chunks, emb):
-    q_emb = embed_model.encode([query])[0]
-    scores = np.dot(emb, q_emb)
-    top = np.argsort(scores)[-5:][::-1]
-    return [chunks[i] for i in top]
+    if len(chunks) == 0 or len(emb) == 0:
+        return ["No document context available"]
+
+    try:
+        q_emb = embed_model.encode([query])[0]
+        scores = np.dot(emb, q_emb)
+        top = np.argsort(scores)[-5:][::-1]
+        return [chunks[i] for i in top]
+    except:
+        return ["Error processing document"]
 
 # ==========================================
 # 🌐 WEB SEARCH
