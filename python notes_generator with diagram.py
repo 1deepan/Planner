@@ -1,5 +1,5 @@
 # ==========================================
-# 🔥 FINAL AI STUDY APP (COMPLETE)
+# 🤖 JARVIS LEVEL AI STUDY ASSISTANT
 # ==========================================
 
 import streamlit as st
@@ -9,13 +9,16 @@ from docx import Document
 import matplotlib.pyplot as plt
 import re
 import os
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
+
+from sentence_transformers import SentenceTransformer
+from duckduckgo_search import DDGS
+
 from reportlab.platypus import SimpleDocTemplate, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 
 # ==========================================
-# 🔐 OPENAI (OPTIONAL)
+# 🔐 OPENAI (OPTIONAL BUT POWERFUL)
 # ==========================================
 
 USE_AI = False
@@ -28,27 +31,21 @@ except:
     pass
 
 # ==========================================
+# 🧠 EMBEDDING MODEL
+# ==========================================
+
+model = SentenceTransformer('all-MiniLM-L6-v2')
+
+# ==========================================
 # 🎨 UI CONFIG
 # ==========================================
 
-st.set_page_config(page_title="AI Study Pro", layout="wide")
+st.set_page_config(page_title="Jarvis AI", layout="wide")
 
 st.markdown("""
 <style>
-.chat-user {
-    background-color: #1f6feb;
-    padding: 10px;
-    border-radius: 10px;
-    margin: 5px;
-    text-align: right;
-}
-.chat-ai {
-    background-color: #30363d;
-    padding: 10px;
-    border-radius: 10px;
-    margin: 5px;
-    text-align: left;
-}
+.chat-user {background:#1f6feb;padding:10px;border-radius:10px;margin:5px;text-align:right;}
+.chat-ai {background:#30363d;padding:10px;border-radius:10px;margin:5px;text-align:left;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -85,26 +82,36 @@ def read_txt(file):
 def split_text(text):
     return [c.strip() for c in text.split(".") if len(c) > 40]
 
-def extract_topics(text):
-    words = re.findall(r'\b[A-Z][a-zA-Z]{4,}\b', text)
-    return list(set(words))[:10]
+def embed_chunks(chunks):
+    return model.encode(chunks)
+
+def semantic_search(question, chunks, embeddings):
+    q_emb = model.encode([question])[0]
+    scores = np.dot(embeddings, q_emb)
+    top_idx = np.argsort(scores)[-5:][::-1]
+    return [chunks[i] for i in top_idx]
 
 # ==========================================
-# 💬 ADVANCED CHATBOT
+# 🌐 WEB SEARCH
 # ==========================================
 
-def get_answer(question, chunks, history):
+def web_search(query):
+    results = []
+    with DDGS() as ddgs:
+        for r in ddgs.text(query, max_results=3):
+            results.append(r["body"])
+    return " ".join(results)
 
-    past = " ".join([q for q, _ in history[-3:]])
-    query = past + " " + question
+# ==========================================
+# 🤖 JARVIS CHAT
+# ==========================================
 
-    vectorizer = TfidfVectorizer(stop_words='english')
-    vectors = vectorizer.fit_transform(chunks + [query])
+def get_answer(question, chunks, embeddings, history):
 
-    sim = cosine_similarity(vectors[-1], vectors[:-1])[0]
-    top = sim.argsort()[-5:][::-1]
+    doc_context = " ".join(semantic_search(question, chunks, embeddings))
+    web_context = web_search(question)
 
-    context = "\n".join([chunks[i] for i in top])
+    full_context = doc_context + "\n" + web_context
 
     if USE_AI:
         try:
@@ -113,12 +120,14 @@ def get_answer(question, chunks, history):
                 messages=[{
                     "role": "user",
                     "content": f"""
-You are a smart tutor.
+You are JARVIS AI.
 
-Explain clearly, step-by-step.
+- Think deeply
+- Answer differently each time
+- Be clear and smart
 
 Context:
-{context}
+{full_context}
 
 Question:
 {question}
@@ -129,14 +138,19 @@ Question:
         except:
             pass
 
-    return f"📌 Answer from your notes:\n{context}"
+    return f"""
+📌 From Notes:
+{doc_context[:400]}
+
+🌐 From Web:
+{web_context[:400]}
+"""
 
 # ==========================================
 # 📅 STUDY PLAN
 # ==========================================
 
-def generate_study_plan(topics, days):
-
+def generate_plan(topics, days):
     if not topics:
         return "No topics found"
 
@@ -148,12 +162,7 @@ def generate_study_plan(topics, days):
         today = topics[idx:idx+per_day]
         idx += per_day
 
-        plan.append(f"""
-Day {d+1}:
-- Topics: {", ".join(today)}
-- Revise previous topics
-- Practice questions
-""")
+        plan.append(f"Day {d+1}: {', '.join(today)} + Revision")
 
     return "\n".join(plan)
 
@@ -169,18 +178,16 @@ def create_mindmap(topics):
 
     root = topics[0]
     ax.text(0.5, 0.9, root, ha='center',
-            bbox=dict(boxstyle="round", fc="#00c853"))
+            bbox=dict(boxstyle="round", fc="green"))
 
     spacing = 0.8 / max(1, len(topics)-1)
 
     for i, t in enumerate(topics[1:]):
         x = 0.1 + i * spacing
-
         ax.text(x, 0.6, t, ha='center',
-                bbox=dict(boxstyle="round", fc="#2962ff"))
+                bbox=dict(boxstyle="round", fc="blue"))
 
-        ax.annotate("", xy=(0.5, 0.85),
-                    xytext=(x, 0.65),
+        ax.annotate("", xy=(0.5,0.85), xytext=(x,0.65),
                     arrowprops=dict(arrowstyle="->"))
 
     ax.axis('off')
@@ -204,13 +211,13 @@ def generate_quiz(text):
 # ==========================================
 
 def export_pdf(content):
-    doc = SimpleDocTemplate("study_notes.pdf")
+    doc = SimpleDocTemplate("notes.pdf")
     styles = getSampleStyleSheet()
     doc.build([Paragraph(content, styles["Normal"])])
-    return "study_notes.pdf"
+    return "notes.pdf"
 
 # ==========================================
-# 🎨 SIDEBAR
+# 🎛 SIDEBAR
 # ==========================================
 
 st.sidebar.title("⚙️ Controls")
@@ -222,7 +229,7 @@ days = st.sidebar.slider("Study Days", 1, 30, 3)
 # MAIN UI
 # ==========================================
 
-st.title("🔥 AI Study Assistant")
+st.title("🤖 JARVIS AI Study Assistant")
 
 if file:
 
@@ -237,33 +244,34 @@ if file:
 
     chunks = split_text(text)
 
+    if "embeddings" not in st.session_state:
+        st.session_state.embeddings = embed_chunks(chunks)
+
     if "chat" not in st.session_state:
         st.session_state.chat = []
 
-    st.session_state.chunks = chunks
-
-    # 📄 Preview
+    # Preview
     with st.expander("📄 Preview"):
         st.write(text[:1200])
 
-    # 🗺 Mindmap
+    # Mindmap
     st.subheader("🗺 Mind Map")
-    topics = extract_topics(text)
+    topics = list(set(re.findall(r'\b[A-Z][a-zA-Z]{4,}\b', text)))[:8]
     mind = create_mindmap(topics)
     if mind:
         st.image(mind)
 
-    # 📅 Study Plan
+    # Study Plan
     st.subheader("📅 Study Plan")
-    plan = generate_study_plan(topics, days)
+    plan = generate_plan(topics, days)
     st.write(plan)
 
-    # 📝 Quiz
+    # Quiz
     st.subheader("📝 Quiz")
     for q in generate_quiz(text):
         st.write("❓", q)
 
-    # 💬 Chat
+    # Chat
     st.subheader("💬 Chat")
 
     for q, a in st.session_state.chat:
@@ -273,25 +281,16 @@ if file:
     user_input = st.chat_input("Ask anything...")
 
     if user_input:
-        ans = get_answer(user_input, chunks, st.session_state.chat)
+        ans = get_answer(user_input, chunks, st.session_state.embeddings, st.session_state.chat)
         st.session_state.chat.append((user_input, ans))
         st.rerun()
 
-    # 📤 Download
-    st.subheader("📤 Download Notes")
+    # Download
+    notes = f"Topics:\n{topics}\n\nPlan:\n{plan}"
+    pdf = export_pdf(notes)
 
-    notes = f"""
-Topics:
-{topics}
-
-Study Plan:
-{plan}
-"""
-
-    file_path = export_pdf(notes)
-
-    with open(file_path, "rb") as f:
-        st.download_button("Download PDF", f, "study_notes.pdf")
+    with open(pdf, "rb") as f:
+        st.download_button("📤 Download Notes", f, "notes.pdf")
 
 else:
-    st.info("Upload a file to start 🚀")
+    st.info("Upload a file to activate Jarvis 🚀")
