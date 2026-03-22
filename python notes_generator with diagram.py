@@ -1,5 +1,5 @@
 # ==========================================
-# 🤖 DEEPAN AI - STABLE JARVIS VERSION
+# 🤖 DEEPAN AI - FINAL WORKING VERSION
 # ==========================================
 
 import streamlit as st
@@ -8,23 +8,19 @@ import fitz
 import numpy as np
 import re
 import matplotlib.pyplot as plt
-
 from sentence_transformers import SentenceTransformer
 from duckduckgo_search import DDGS
 from gtts import gTTS
 import base64
 
 # ==========================================
-# 🔐 OPENAI SETUP
+# 🔐 OPENAI SETUP (FIXED)
 # ==========================================
 
 from openai import OpenAI
 
-client = None
-api_key = os.getenv("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")
-
-if api_key:
-    client = OpenAI(api_key=api_key)
+api_key = os.getenv("OPENAI_API_KEY")   # ✅ CORRECT
+client = OpenAI(api_key=api_key) if api_key else None
 
 # ==========================================
 # 🧠 MODEL
