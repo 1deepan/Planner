@@ -1,5 +1,5 @@
 # ==========================================
-# 🔥 GOD LEVEL AI STUDY APP
+# 🔥 AI STUDY APP (FINAL PRO MAX)
 # ==========================================
 
 import streamlit as st
@@ -9,7 +9,6 @@ from docx import Document
 import matplotlib.pyplot as plt
 import re
 import os
-import speech_recognition as sr
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -53,86 +52,28 @@ def read_txt(file):
     return file.read().decode("utf-8")
 
 # ==========================================
-# 🧠 SMART TOPICS + IMPORTANCE
-# ==========================================
-
-def extract_topics(text):
-    lines = text.split("\n")
-    topics = []
-
-    for line in lines:
-        line = line.strip()
-        if 5 < len(line) < 80:
-            if line.istitle() or ":" in line:
-                topics.append(line)
-
-    words = re.findall(r'\b[A-Z][a-zA-Z]{4,}\b', text)
-    topics += list(set(words))
-
-    return list(set(topics))[:10]
-
-def highlight_important(text):
-    keywords = ["definition", "algorithm", "formula", "theorem", "step"]
-    important = []
-
-    for line in text.split("\n"):
-        for k in keywords:
-            if k.lower() in line.lower():
-                important.append(line)
-
-    return important[:8]
-
-# ==========================================
-# 🗺 FLOWCHART GENERATOR
-# ==========================================
-
-def create_flowchart(steps):
-    if len(steps) < 2:
-        return None
-
-    fig, ax = plt.subplots(figsize=(6, len(steps)))
-
-    for i, step in enumerate(steps):
-        y = len(steps) - i
-
-        ax.text(
-            0.5, y,
-            step[:40],
-            ha='center',
-            bbox=dict(boxstyle="round", fc="lightblue")
-        )
-
-        if i < len(steps)-1:
-            ax.annotate(
-                "",
-                xy=(0.5, y-1),
-                xytext=(0.5, y-0.2),
-                arrowprops=dict(arrowstyle="->")
-            )
-
-    ax.axis('off')
-
-    path = "flowchart.png"
-    plt.savefig(path)
-    plt.close()
-
-    return path
-
-# ==========================================
-# 💬 CHATBOT (BETTER RAG)
+# 🧠 TEXT PROCESSING
 # ==========================================
 
 def split_text(text):
-    return [chunk for chunk in text.split(".") if len(chunk) > 40]
+    return [c for c in text.split(".") if len(c) > 40]
+
+def extract_topics(text):
+    words = re.findall(r'\b[A-Z][a-zA-Z]{4,}\b', text)
+    return list(set(words))[:8]
+
+# ==========================================
+# 💬 CHATBOT (BETTER)
+# ==========================================
 
 def get_answer(question, chunks):
     vectorizer = TfidfVectorizer()
     vectors = vectorizer.fit_transform(chunks + [question])
 
-    sim = cosine_similarity(vectors[-1], vectors[:-1])
-    top_indices = sim[0].argsort()[-3:][::-1]
+    sim = cosine_similarity(vectors[-1], vectors[:-1])[0]
+    top = sim.argsort()[-3:][::-1]
 
-    context = " ".join([chunks[i] for i in top_indices])
+    context = " ".join([chunks[i] for i in top])
 
     if USE_AI:
         try:
@@ -141,7 +82,7 @@ def get_answer(question, chunks):
                 messages=[{
                     "role": "user",
                     "content": f"""
-Answer clearly like a tutor.
+Answer like a tutor.
 
 Context:
 {context}
@@ -155,22 +96,67 @@ Question:
         except:
             pass
 
-    return f"📌 Answer from document:\n{context}"
+    return "📌 " + context
 
 # ==========================================
-# 🎤 VOICE INPUT
+# 🗺 BEAUTIFUL TREE MINDMAP
 # ==========================================
 
-def voice_input():
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("🎤 Speak now...")
-        audio = r.listen(source)
+def create_mindmap(topics):
+    if not topics:
+        return None
 
-    try:
-        return r.recognize_google(audio)
-    except:
-        return "Could not understand"
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    root = topics[0]
+    ax.text(0.5, 0.9, root, ha='center',
+            bbox=dict(boxstyle="round", fc="#4CAF50", ec="black"))
+
+    y = 0.6
+    spacing = 0.8 / max(1, len(topics)-1)
+
+    for i, t in enumerate(topics[1:]):
+        x = 0.1 + i * spacing
+
+        ax.text(x, y, t, ha='center',
+                bbox=dict(boxstyle="round", fc="#2196F3", ec="black"))
+
+        ax.annotate("",
+                    xy=(0.5, 0.85),
+                    xytext=(x, y+0.05),
+                    arrowprops=dict(arrowstyle="->", lw=1.5))
+
+    ax.axis('off')
+
+    path = "mindmap.png"
+    plt.savefig(path, bbox_inches='tight')
+    plt.close()
+
+    return path
+
+# ==========================================
+# 🎤 BROWSER VOICE INPUT (JS)
+# ==========================================
+
+def voice_input_ui():
+    st.components.v1.html("""
+    <button onclick="startDictation()">🎤 Speak</button>
+    <p id="output"></p>
+
+    <script>
+    function startDictation() {
+        var recognition = new webkitSpeechRecognition();
+        recognition.lang = "en-US";
+
+        recognition.onresult = function(event) {
+            document.getElementById("output").innerText =
+                event.results[0][0].transcript;
+        };
+
+        recognition.start();
+    }
+    </script>
+    """, height=150)
 
 # ==========================================
 # 🎨 UI
@@ -178,64 +164,52 @@ def voice_input():
 
 st.set_page_config(page_title="AI Study Pro", layout="wide")
 
-st.title("🔥 AI Study Assistant (Pro Version)")
+st.title("🔥 AI Study Assistant (Final Version)")
 
-uploaded_file = st.file_uploader("Upload file", type=["pdf","pptx","docx","txt"])
-days = st.number_input("Study days", 1, 30, 3)
+file = st.file_uploader("📂 Upload file", type=["pdf","pptx","docx","txt"])
+days = st.number_input("📅 Study Days",1,30,3)
 
-if uploaded_file:
+if file:
 
-    if uploaded_file.name.endswith(".pdf"):
-        text = read_pdf(uploaded_file)
-    elif uploaded_file.name.endswith(".pptx"):
-        text = read_ppt(uploaded_file)
-    elif uploaded_file.name.endswith(".docx"):
-        text = read_docx(uploaded_file)
+    if file.name.endswith(".pdf"):
+        text = read_pdf(file)
+    elif file.name.endswith(".pptx"):
+        text = read_ppt(file)
+    elif file.name.endswith(".docx"):
+        text = read_docx(file)
     else:
-        text = read_txt(uploaded_file)
+        text = read_txt(file)
 
-    st.session_state["chunks"] = split_text(text)
+    chunks = split_text(text)
+    st.session_state["chunks"] = chunks
 
     st.subheader("📄 Preview")
-    st.write(text[:1500])
+    st.write(text[:1200])
 
-    # IMPORTANT TOPICS
-    st.subheader("🔥 Important Exam Topics")
-    important = highlight_important(text)
-    for i in important:
-        st.write("⭐", i)
+    # Mindmap
+    topics = extract_topics(text)
+    mind = create_mindmap(topics)
 
-    # FLOWCHART
-    st.subheader("🗺 Flowchart")
-    steps = extract_topics(text)
-    flow = create_flowchart(steps)
-    if flow:
-        st.image(flow)
+    st.subheader("🗺 Mind Map")
+    if mind:
+        st.image(mind)
 
-    # CHAT
+    # Chat
     st.subheader("💬 Chat")
 
     if "chat" not in st.session_state:
         st.session_state.chat = []
 
-    col1, col2 = st.columns([4,1])
+    user_input = st.text_input("Ask question")
 
-    with col1:
-        user_input = st.text_input("Ask anything from your notes")
-
-    with col2:
-        if st.button("🎤 Speak"):
-            user_input = voice_input()
+    # Voice UI
+    voice_input_ui()
 
     if user_input:
-        answer = get_answer(user_input, st.session_state["chunks"])
+        ans = get_answer(user_input, chunks)
+        st.session_state.chat.append((user_input, ans))
 
-        st.session_state.chat.append(("You", user_input))
-        st.session_state.chat.append(("AI", answer))
-
-    for role, msg in st.session_state.chat:
-        if role == "You":
-            st.markdown(f"**🧑 You:** {msg}")
-        else:
-            st.markdown(f"**🤖 AI:** {msg}")
+    for q,a in st.session_state.chat:
+        st.markdown(f"**🧑 You:** {q}")
+        st.markdown(f"**🤖 AI:** {a}")
 # streamlit run "c:\Users\karun\Downloads\generate_image\python notes_generator with diagram.py"
