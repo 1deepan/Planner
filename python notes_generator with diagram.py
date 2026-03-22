@@ -1,5 +1,5 @@
 # ==========================================
-# 🔥 CHATGPT-STYLE AI STUDY APP
+# 🔥 FINAL AI STUDY APP (COMPLETE)
 # ==========================================
 
 import streamlit as st
@@ -11,9 +11,11 @@ import re
 import os
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.lib.styles import getSampleStyleSheet
 
 # ==========================================
-# 🔐 OPENAI
+# 🔐 OPENAI (OPTIONAL)
 # ==========================================
 
 USE_AI = False
@@ -26,21 +28,13 @@ except:
     pass
 
 # ==========================================
-# 🎨 PAGE CONFIG
+# 🎨 UI CONFIG
 # ==========================================
 
-st.set_page_config(page_title="AI Study Chat", layout="wide")
-
-# ==========================================
-# 💅 CHATGPT STYLE CSS
-# ==========================================
+st.set_page_config(page_title="AI Study Pro", layout="wide")
 
 st.markdown("""
 <style>
-body {
-    background-color: #0e1117;
-    color: white;
-}
 .chat-user {
     background-color: #1f6feb;
     padding: 10px;
@@ -54,9 +48,6 @@ body {
     border-radius: 10px;
     margin: 5px;
     text-align: left;
-}
-.sidebar .sidebar-content {
-    background-color: #161b22;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -92,7 +83,7 @@ def read_txt(file):
 # ==========================================
 
 def split_text(text):
-    return [c for c in text.split(".") if len(c) > 50]
+    return [c.strip() for c in text.split(".") if len(c) > 40]
 
 def extract_topics(text):
     words = re.findall(r'\b[A-Z][a-zA-Z]{4,}\b', text)
@@ -104,18 +95,16 @@ def extract_topics(text):
 
 def get_answer(question, chunks, history):
 
-    # Combine previous questions for context
     past = " ".join([q for q, _ in history[-3:]])
-
     query = past + " " + question
 
-    vectorizer = TfidfVectorizer()
+    vectorizer = TfidfVectorizer(stop_words='english')
     vectors = vectorizer.fit_transform(chunks + [query])
 
     sim = cosine_similarity(vectors[-1], vectors[:-1])[0]
     top = sim.argsort()[-5:][::-1]
 
-    context = " ".join([chunks[i] for i in top])
+    context = "\n".join([chunks[i] for i in top])
 
     if USE_AI:
         try:
@@ -126,7 +115,7 @@ def get_answer(question, chunks, history):
                     "content": f"""
 You are a smart tutor.
 
-Explain clearly, step-by-step if needed.
+Explain clearly, step-by-step.
 
 Context:
 {context}
@@ -140,17 +129,43 @@ Question:
         except:
             pass
 
-    return f"📌 Based on document:\n{context}"
+    return f"📌 Answer from your notes:\n{context}"
 
 # ==========================================
-# 🗺 BETTER MINDMAP
+# 📅 STUDY PLAN
+# ==========================================
+
+def generate_study_plan(topics, days):
+
+    if not topics:
+        return "No topics found"
+
+    per_day = max(1, len(topics)//days)
+    plan = []
+    idx = 0
+
+    for d in range(days):
+        today = topics[idx:idx+per_day]
+        idx += per_day
+
+        plan.append(f"""
+Day {d+1}:
+- Topics: {", ".join(today)}
+- Revise previous topics
+- Practice questions
+""")
+
+    return "\n".join(plan)
+
+# ==========================================
+# 🗺 MINDMAP
 # ==========================================
 
 def create_mindmap(topics):
     if not topics:
         return None
 
-    fig, ax = plt.subplots(figsize=(9,6))
+    fig, ax = plt.subplots(figsize=(8,6))
 
     root = topics[0]
     ax.text(0.5, 0.9, root, ha='center',
@@ -164,10 +179,9 @@ def create_mindmap(topics):
         ax.text(x, 0.6, t, ha='center',
                 bbox=dict(boxstyle="round", fc="#2962ff"))
 
-        ax.annotate("",
-                    xy=(0.5, 0.85),
+        ax.annotate("", xy=(0.5, 0.85),
                     xytext=(x, 0.65),
-                    arrowprops=dict(arrowstyle="->", lw=2))
+                    arrowprops=dict(arrowstyle="->"))
 
     ax.axis('off')
 
@@ -178,7 +192,25 @@ def create_mindmap(topics):
     return path
 
 # ==========================================
-# 🧭 SIDEBAR
+# 📝 QUIZ
+# ==========================================
+
+def generate_quiz(text):
+    sents = [s for s in text.split(".") if len(s) > 40]
+    return [f"What is: {s[:50]}?" for s in sents[:5]]
+
+# ==========================================
+# 📤 EXPORT
+# ==========================================
+
+def export_pdf(content):
+    doc = SimpleDocTemplate("study_notes.pdf")
+    styles = getSampleStyleSheet()
+    doc.build([Paragraph(content, styles["Normal"])])
+    return "study_notes.pdf"
+
+# ==========================================
+# 🎨 SIDEBAR
 # ==========================================
 
 st.sidebar.title("⚙️ Controls")
@@ -190,7 +222,7 @@ days = st.sidebar.slider("Study Days", 1, 30, 3)
 # MAIN UI
 # ==========================================
 
-st.title("🤖 AI Study Chat")
+st.title("🔥 AI Study Assistant")
 
 if file:
 
@@ -208,31 +240,58 @@ if file:
     if "chat" not in st.session_state:
         st.session_state.chat = []
 
-    if "chunks" not in st.session_state:
-        st.session_state.chunks = chunks
+    st.session_state.chunks = chunks
 
-    # Mindmap
-    with st.expander("🗺 View Mindmap"):
-        topics = extract_topics(text)
-        mind = create_mindmap(topics)
-        if mind:
-            st.image(mind)
+    # 📄 Preview
+    with st.expander("📄 Preview"):
+        st.write(text[:1200])
 
-    # Chat display
-    chat_container = st.container()
+    # 🗺 Mindmap
+    st.subheader("🗺 Mind Map")
+    topics = extract_topics(text)
+    mind = create_mindmap(topics)
+    if mind:
+        st.image(mind)
+
+    # 📅 Study Plan
+    st.subheader("📅 Study Plan")
+    plan = generate_study_plan(topics, days)
+    st.write(plan)
+
+    # 📝 Quiz
+    st.subheader("📝 Quiz")
+    for q in generate_quiz(text):
+        st.write("❓", q)
+
+    # 💬 Chat
+    st.subheader("💬 Chat")
 
     for q, a in st.session_state.chat:
-        chat_container.markdown(f"<div class='chat-user'>🧑 {q}</div>", unsafe_allow_html=True)
-        chat_container.markdown(f"<div class='chat-ai'>🤖 {a}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='chat-user'>🧑 {q}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='chat-ai'>🤖 {a}</div>", unsafe_allow_html=True)
 
-    # Input
-    user_input = st.chat_input("Ask anything about your file...")
+    user_input = st.chat_input("Ask anything...")
 
     if user_input:
-        answer = get_answer(user_input, st.session_state.chunks, st.session_state.chat)
-        st.session_state.chat.append((user_input, answer))
-
+        ans = get_answer(user_input, chunks, st.session_state.chat)
+        st.session_state.chat.append((user_input, ans))
         st.rerun()
 
+    # 📤 Download
+    st.subheader("📤 Download Notes")
+
+    notes = f"""
+Topics:
+{topics}
+
+Study Plan:
+{plan}
+"""
+
+    file_path = export_pdf(notes)
+
+    with open(file_path, "rb") as f:
+        st.download_button("Download PDF", f, "study_notes.pdf")
+
 else:
-    st.info("Upload a file to start chatting 📂")
+    st.info("Upload a file to start 🚀")
