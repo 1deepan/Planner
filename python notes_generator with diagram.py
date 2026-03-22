@@ -40,7 +40,7 @@ model = SentenceTransformer('all-MiniLM-L6-v2')
 # 🎨 UI CONFIG
 # ==========================================
 
-st.set_page_config(page_title="Jarvis AI", layout="wide")
+st.set_page_config(page_title="DEEPAN AI", layout="wide")
 
 st.markdown("""
 <style>
