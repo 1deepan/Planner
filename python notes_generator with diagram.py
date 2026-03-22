@@ -1,7 +1,7 @@
 # ==========================================
-# 🤖 DEEPAN AI - FINAL VERSION WITH OCR
+# 🤖 DEEPAN AI - FINAL STABLE VERSION
 # ==========================================
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
 import streamlit as st
 import os
 import fitz
@@ -12,10 +12,6 @@ from sentence_transformers import SentenceTransformer
 from duckduckgo_search import DDGS
 from gtts import gTTS
 import base64
-
-# OCR
-import pytesseract
-from PIL import Image
 
 # ==========================================
 # 🔐 OPENAI SETUP
@@ -50,7 +46,7 @@ body { background:#0a0f1c; color:white; }
 st.markdown("<div class='title'>🤖 DEEPAN AI</div>", unsafe_allow_html=True)
 
 # ==========================================
-# 📄 PDF + OCR READER
+# 📄 PDF READER (WITH SAFE OCR)
 # ==========================================
 
 def read_pdf(file):
@@ -60,15 +56,21 @@ def read_pdf(file):
     for page in doc:
         page_text = page.get_text()
 
-        # If normal text exists
         if page_text.strip():
             text += page_text
         else:
-            # OCR fallback
-            pix = page.get_pixmap()
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            ocr_text = pytesseract.image_to_string(img)
-            text += ocr_text
+            try:
+                import pytesseract
+                from PIL import Image
+
+                pix = page.get_pixmap()
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+
+                ocr_text = pytesseract.image_to_string(img)
+                text += ocr_text
+
+            except:
+                text += " [OCR not available] "
 
     return text
 
