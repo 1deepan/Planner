@@ -6,3 +6,5 @@ matplotlib
 sentence-transformers
 duckduckgo-search
 numpy
+reportlab
+openai
