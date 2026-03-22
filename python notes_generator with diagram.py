@@ -1,5 +1,5 @@
 # ==========================================
-# 🤖 JARVIS LEVEL AI STUDY ASSISTANT
+# 🤖 DEEPAN AI (IRON MAN JARVIS STYLE)
 # ==========================================
 
 import streamlit as st
@@ -14,40 +14,48 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from duckduckgo_search import DDGS
 
-from reportlab.platypus import SimpleDocTemplate, Paragraph
-from reportlab.lib.styles import getSampleStyleSheet
-
 # ==========================================
-# 🔐 OPENAI (OPTIONAL BUT POWERFUL)
-# ==========================================
-
-USE_AI = False
-try:
-    from openai import OpenAI
-    if os.getenv("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"):
-        client = OpenAI()
-        USE_AI = True
-except:
-    pass
-
-# ==========================================
-# 🧠 EMBEDDING MODEL
+# 🧠 MODEL
 # ==========================================
 
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
 # ==========================================
-# 🎨 UI CONFIG
+# 🎨 IRON MAN UI
 # ==========================================
 
-st.set_page_config(page_title="DEEPAN AI", layout="wide")
+st.set_page_config(page_title="Deepan AI", layout="wide")
 
 st.markdown("""
 <style>
-.chat-user {background:#1f6feb;padding:10px;border-radius:10px;margin:5px;text-align:right;}
-.chat-ai {background:#30363d;padding:10px;border-radius:10px;margin:5px;text-align:left;}
+body {
+    background-color: #0a0f1c;
+    color: white;
+}
+.title {
+    font-size: 40px;
+    color: #00e6ff;
+    text-align: center;
+    text-shadow: 0px 0px 15px #00e6ff;
+}
+.chat-user {
+    background: linear-gradient(90deg,#007cf0,#00dfd8);
+    padding: 10px;
+    border-radius: 10px;
+    margin: 5px;
+    text-align: right;
+}
+.chat-ai {
+    background: #111827;
+    border: 1px solid #00e6ff;
+    padding: 10px;
+    border-radius: 10px;
+    margin: 5px;
+}
 </style>
 """, unsafe_allow_html=True)
+
+st.markdown("<div class='title'>🤖 DEEPAN AI</div>", unsafe_allow_html=True)
 
 # ==========================================
 # 📄 FILE READERS
@@ -76,7 +84,7 @@ def read_txt(file):
     return file.read().decode("utf-8")
 
 # ==========================================
-# 🧠 TEXT PROCESSING
+# 🧠 PROCESSING
 # ==========================================
 
 def split_text(text):
@@ -88,8 +96,8 @@ def embed_chunks(chunks):
 def semantic_search(question, chunks, embeddings):
     q_emb = model.encode([question])[0]
     scores = np.dot(embeddings, q_emb)
-    top_idx = np.argsort(scores)[-5:][::-1]
-    return [chunks[i] for i in top_idx]
+    top = np.argsort(scores)[-5:][::-1]
+    return [chunks[i] for i in top]
 
 # ==========================================
 # 🌐 WEB SEARCH
@@ -103,68 +111,23 @@ def web_search(query):
     return " ".join(results)
 
 # ==========================================
-# 🤖 JARVIS CHAT
+# 🤖 JARVIS ANSWER
 # ==========================================
 
-def get_answer(question, chunks, embeddings, history):
+def get_answer(q, chunks, emb):
 
-    doc_context = " ".join(semantic_search(question, chunks, embeddings))
-    web_context = web_search(question)
-
-    full_context = doc_context + "\n" + web_context
-
-    if USE_AI:
-        try:
-            res = client.chat.completions.create(
-                model="gpt-5-mini",
-                messages=[{
-                    "role": "user",
-                    "content": f"""
-You are JARVIS AI.
-
-- Think deeply
-- Answer differently each time
-- Be clear and smart
-
-Context:
-{full_context}
-
-Question:
-{question}
-"""
-                }]
-            )
-            return res.choices[0].message.content
-        except:
-            pass
+    doc = " ".join(semantic_search(q, chunks, emb))
+    web = web_search(q)
 
     return f"""
-📌 From Notes:
-{doc_context[:400]}
+🤖 **Deepan AI Response**
 
-🌐 From Web:
-{web_context[:400]}
+📄 From Notes:
+{doc[:400]}
+
+🌐 From Internet:
+{web[:400]}
 """
-
-# ==========================================
-# 📅 STUDY PLAN
-# ==========================================
-
-def generate_plan(topics, days):
-    if not topics:
-        return "No topics found"
-
-    per_day = max(1, len(topics)//days)
-    plan = []
-    idx = 0
-
-    for d in range(days):
-        today = topics[idx:idx+per_day]
-        idx += per_day
-
-        plan.append(f"Day {d+1}: {', '.join(today)} + Revision")
-
-    return "\n".join(plan)
 
 # ==========================================
 # 🗺 MINDMAP
@@ -175,61 +138,62 @@ def create_mindmap(topics):
         return None
 
     fig, ax = plt.subplots(figsize=(8,6))
+    ax.set_facecolor("#0a0f1c")
 
     root = topics[0]
     ax.text(0.5, 0.9, root, ha='center',
-            bbox=dict(boxstyle="round", fc="green"))
+            bbox=dict(boxstyle="round", fc="#00e6ff"))
 
     spacing = 0.8 / max(1, len(topics)-1)
 
     for i, t in enumerate(topics[1:]):
         x = 0.1 + i * spacing
         ax.text(x, 0.6, t, ha='center',
-                bbox=dict(boxstyle="round", fc="blue"))
+                bbox=dict(boxstyle="round", fc="#007cf0"))
 
         ax.annotate("", xy=(0.5,0.85), xytext=(x,0.65),
-                    arrowprops=dict(arrowstyle="->"))
+                    arrowprops=dict(arrowstyle="->", color="#00e6ff"))
 
     ax.axis('off')
 
     path = "mindmap.png"
-    plt.savefig(path, bbox_inches='tight')
+    plt.savefig(path, bbox_inches='tight', facecolor="#0a0f1c")
     plt.close()
 
     return path
 
 # ==========================================
-# 📝 QUIZ
+# 🎤 VOICE (BROWSER)
 # ==========================================
 
-def generate_quiz(text):
-    sents = [s for s in text.split(".") if len(s) > 40]
-    return [f"What is: {s[:50]}?" for s in sents[:5]]
+def voice_ui():
+    st.components.v1.html("""
+    <button onclick="start()">🎤 Speak</button>
+    <p id="out"></p>
+
+    <script>
+    function start(){
+        var r = new webkitSpeechRecognition();
+        r.onresult = function(e){
+            document.getElementById("out").innerText =
+            e.results[0][0].transcript;
+        };
+        r.start();
+    }
+    </script>
+    """, height=150)
 
 # ==========================================
-# 📤 EXPORT
+# SIDEBAR
 # ==========================================
 
-def export_pdf(content):
-    doc = SimpleDocTemplate("notes.pdf")
-    styles = getSampleStyleSheet()
-    doc.build([Paragraph(content, styles["Normal"])])
-    return "notes.pdf"
-
-# ==========================================
-# 🎛 SIDEBAR
-# ==========================================
-
-st.sidebar.title("⚙️ Controls")
+st.sidebar.title("⚙️ Control Panel")
 
 file = st.sidebar.file_uploader("Upload File", type=["pdf","pptx","docx","txt"])
-days = st.sidebar.slider("Study Days", 1, 30, 3)
 
 # ==========================================
-# MAIN UI
+# MAIN
 # ==========================================
-
-st.title("🤖 JARVIS AI Study Assistant")
 
 if file:
 
@@ -244,53 +208,34 @@ if file:
 
     chunks = split_text(text)
 
-    if "embeddings" not in st.session_state:
-        st.session_state.embeddings = embed_chunks(chunks)
+    if "emb" not in st.session_state:
+        st.session_state.emb = embed_chunks(chunks)
 
     if "chat" not in st.session_state:
         st.session_state.chat = []
 
-    # Preview
-    with st.expander("📄 Preview"):
-        st.write(text[:1200])
-
     # Mindmap
-    st.subheader("🗺 Mind Map")
     topics = list(set(re.findall(r'\b[A-Z][a-zA-Z]{4,}\b', text)))[:8]
-    mind = create_mindmap(topics)
-    if mind:
-        st.image(mind)
+    st.subheader("🗺 Mind Map")
+    st.image(create_mindmap(topics))
 
-    # Study Plan
-    st.subheader("📅 Study Plan")
-    plan = generate_plan(topics, days)
-    st.write(plan)
-
-    # Quiz
-    st.subheader("📝 Quiz")
-    for q in generate_quiz(text):
-        st.write("❓", q)
+    # Voice
+    st.subheader("🎤 Voice Assistant")
+    voice_ui()
 
     # Chat
     st.subheader("💬 Chat")
 
-    for q, a in st.session_state.chat:
+    for q,a in st.session_state.chat:
         st.markdown(f"<div class='chat-user'>🧑 {q}</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='chat-ai'>🤖 {a}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='chat-ai'>{a}</div>", unsafe_allow_html=True)
 
-    user_input = st.chat_input("Ask anything...")
+    user = st.chat_input("Ask anything...")
 
-    if user_input:
-        ans = get_answer(user_input, chunks, st.session_state.embeddings, st.session_state.chat)
-        st.session_state.chat.append((user_input, ans))
+    if user:
+        ans = get_answer(user, chunks, st.session_state.emb)
+        st.session_state.chat.append((user, ans))
         st.rerun()
 
-    # Download
-    notes = f"Topics:\n{topics}\n\nPlan:\n{plan}"
-    pdf = export_pdf(notes)
-
-    with open(pdf, "rb") as f:
-        st.download_button("📤 Download Notes", f, "notes.pdf")
-
 else:
-    st.info("Upload a file to activate Jarvis 🚀")
+    st.info("Upload file to activate Deepan AI 🚀")
