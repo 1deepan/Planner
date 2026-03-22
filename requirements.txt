@@ -1,10 +1,8 @@
 streamlit
 pymupdf
-sentence-transformers
-duckduckgo-search
 numpy
 matplotlib
+sentence-transformers
+duckduckgo-search
 gtts
 openai
-speechrecognition
-pyaudio
