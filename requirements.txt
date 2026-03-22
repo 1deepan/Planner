@@ -6,3 +6,6 @@ matplotlib
 scikit-learn
 reportlab
 openai
+sentence-transformers
+duckduckgo-search
+numpy
