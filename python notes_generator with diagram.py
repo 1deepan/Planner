@@ -36,7 +36,7 @@ body {background:#0a0f1c;color:white;}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<div class='title'>🤖 DEEPAN AI (JARVIS)</div>", unsafe_allow_html=True)
+st.markdown("<div class='title'>🤖 DEEPAN AI </div>", unsafe_allow_html=True)
 
 # ==========================================
 # 📄 FILE READERS
