@@ -1,5 +1,5 @@
 # ==========================================
-# 🤖 DEEPAN AI - JARVIS FINAL VERSION
+# 🤖 DEEPAN AI (FINAL DEPLOYABLE VERSION)
 # ==========================================
 
 import streamlit as st
@@ -9,17 +9,34 @@ from docx import Document
 import matplotlib.pyplot as plt
 import re
 import numpy as np
+import os
+
 from sentence_transformers import SentenceTransformer
 from duckduckgo_search import DDGS
-
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
 # ==========================================
-# 🧠 MODEL
+# 🔐 OPENAI SETUP (FOR STREAMLIT CLOUD)
 # ==========================================
 
-model = SentenceTransformer('all-MiniLM-L6-v2')
+USE_AI = False
+client = None
+
+try:
+    from openai import OpenAI
+    api_key = os.getenv("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")
+    if api_key:
+        client = OpenAI(api_key=api_key)
+        USE_AI = True
+except:
+    pass
+
+# ==========================================
+# 🧠 EMBEDDING MODEL
+# ==========================================
+
+embed_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 # ==========================================
 # 🎨 UI (IRON MAN STYLE)
@@ -36,7 +53,7 @@ body {background:#0a0f1c;color:white;}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<div class='title'>🤖 DEEPAN AI </div>", unsafe_allow_html=True)
+st.markdown("<div class='title'>🤖 DEEPAN AI</div>", unsafe_allow_html=True)
 
 # ==========================================
 # 📄 FILE READERS
@@ -72,10 +89,10 @@ def split_text(text):
     return [c.strip() for c in text.split(".") if len(c) > 40]
 
 def embed_chunks(chunks):
-    return model.encode(chunks)
+    return embed_model.encode(chunks)
 
 def semantic_search(q, chunks, emb):
-    q_emb = model.encode([q])[0]
+    q_emb = embed_model.encode([q])[0]
     scores = np.dot(emb, q_emb)
     top = np.argsort(scores)[-5:][::-1]
     return [chunks[i] for i in top]
@@ -86,59 +103,68 @@ def semantic_search(q, chunks, emb):
 
 def web_search(query):
     results = []
-    with DDGS() as ddgs:
-        for r in ddgs.text(query, max_results=3):
-            results.append(r["body"])
+    try:
+        with DDGS() as ddgs:
+            for r in ddgs.text(query, max_results=3):
+                results.append(r["body"])
+    except:
+        return ""
     return " ".join(results)
 
 # ==========================================
-# 🤖 SMART ANSWER (JARVIS STYLE)
+# 🤖 CHATGPT + JARVIS
 # ==========================================
 
-def get_answer(q, chunks, emb):
+def get_answer(q, chunks, emb, history):
 
-    doc = " ".join(semantic_search(q, chunks, emb))
-    web = web_search(q)
+    doc_context = " ".join(semantic_search(q, chunks, emb))
+    web_context = web_search(q)
 
-    return f"""
-Here’s a clear explanation:
+    if USE_AI:
+        messages = [{"role": "system", "content": "You are Deepan AI, a smart assistant."}]
 
-📘 From your notes:
-{doc[:500]}
+        for u, a in history[-5:]:
+            messages.append({"role": "user", "content": u})
+            messages.append({"role": "assistant", "content": a})
 
-🌐 Additional info:
-{web[:500]}
+        messages.append({
+            "role": "user",
+            "content": f"""
+Use both:
+
+📄 Document:
+{doc_context}
+
+🌐 Web:
+{web_context}
+
+Answer clearly and smartly:
+{q}
 """
+        })
+
+        res = client.chat.completions.create(
+            model="gpt-5-mini",
+            messages=messages
+        )
+
+        return res.choices[0].message.content
+
+    return f"📄 {doc_context[:400]}\n🌐 {web_context[:400]}"
 
 # ==========================================
-# 🎤 VOICE (INPUT + OUTPUT)
+# 🎤 VOICE OUTPUT
 # ==========================================
 
-def voice_system():
-    st.components.v1.html("""
-    <button onclick="start()">🎤 Speak</button>
-    <p id="text"></p>
-
+def speak(text):
+    st.components.v1.html(f"""
     <script>
-    function start(){
-        var rec = new webkitSpeechRecognition();
-        rec.onresult = function(e){
-            let txt = e.results[0][0].transcript;
-            document.getElementById("text").innerText = txt;
-            window.parent.postMessage(txt, "*");
-        };
-        rec.start();
-    }
-
-    window.addEventListener("message", (e)=>{
-        let speech = new SpeechSynthesisUtterance(e.data);
-        speech.rate = 0.9;
-        speech.pitch = 0.8;
-        speech.lang = "en-US";
-        speechSynthesis.speak(speech);
-    });
+    var msg = new SpeechSynthesisUtterance(`{text}`);
+    msg.rate = 0.9;
+    msg.pitch = 0.8;
+    speechSynthesis.speak(msg);
     </script>
-    """, height=200)
+    """, height=0)
 
 # ==========================================
 # 📅 STUDY PLAN
@@ -161,11 +187,14 @@ def create_mindmap(topics):
     fig, ax = plt.subplots(figsize=(8,6))
     ax.set_facecolor("#0a0f1c")
 
-    ax.text(0.5,0.9,topics[0],ha='center',bbox=dict(boxstyle="round",fc="#00e6ff"))
+    ax.text(0.5,0.9,topics[0],ha='center',
+            bbox=dict(boxstyle="round",fc="#00e6ff"))
 
     for i,t in enumerate(topics[1:]):
         x = 0.1 + i*(0.8/max(1,len(topics)-1))
-        ax.text(x,0.6,t,ha='center',bbox=dict(boxstyle="round",fc="#007cf0"))
+        ax.text(x,0.6,t,ha='center',
+                bbox=dict(boxstyle="round",fc="#007cf0"))
+
         ax.annotate("",xy=(0.5,0.85),xytext=(x,0.65),
                     arrowprops=dict(arrowstyle="->",color="#00e6ff"))
 
@@ -176,7 +205,7 @@ def create_mindmap(topics):
     return "mindmap.png"
 
 # ==========================================
-# 📤 PDF EXPORT (FORMATTED)
+# 📤 PDF EXPORT
 # ==========================================
 
 def export_pdf(topics, plan):
@@ -184,8 +213,7 @@ def export_pdf(topics, plan):
     styles = getSampleStyleSheet()
 
     content = []
-
-    content.append(Paragraph("<b>Deepan AI Study Notes</b>", styles["Title"]))
+    content.append(Paragraph("<b>Deepan AI Notes</b>", styles["Title"]))
     content.append(Spacer(1,10))
 
     content.append(Paragraph("<b>Topics:</b>", styles["Heading2"]))
@@ -193,21 +221,26 @@ def export_pdf(topics, plan):
         content.append(Paragraph(t, styles["Normal"]))
 
     content.append(Spacer(1,10))
-
     content.append(Paragraph("<b>Study Plan:</b>", styles["Heading2"]))
+
     for p in plan.split("\n"):
         content.append(Paragraph(p, styles["Normal"]))
 
     doc.build(content)
-
     return "Deepan_AI_Notes.pdf"
 
 # ==========================================
-# MAIN
+# 🎛 SIDEBAR
 # ==========================================
+
+st.sidebar.title("⚙️ Controls")
 
 file = st.sidebar.file_uploader("Upload File", type=["pdf","pptx","docx","txt"])
 days = st.sidebar.slider("Study Days",1,30,5)
+
+# ==========================================
+# MAIN APP
+# ==========================================
 
 if file:
 
@@ -230,13 +263,14 @@ if file:
 
     topics = list(set(re.findall(r'\b[A-Z][a-zA-Z]{4,}\b', text)))[:10]
 
+    st.subheader("🗺 Mind Map")
     st.image(create_mindmap(topics))
 
-    plan = generate_plan(topics, days)
     st.subheader("📅 Study Plan")
+    plan = generate_plan(topics, days)
     st.write(plan)
 
-    voice_system()
+    st.subheader("💬 Chat")
 
     for q,a in st.session_state.chat:
         st.markdown(f"<div class='chat-user'>{q}</div>", unsafe_allow_html=True)
@@ -245,12 +279,12 @@ if file:
     user = st.chat_input("Ask anything...")
 
     if user:
-        ans = get_answer(user, chunks, st.session_state.emb)
+        ans = get_answer(user, chunks, st.session_state.emb, st.session_state.chat)
         st.session_state.chat.append((user, ans))
+        speak(ans)
         st.rerun()
 
     pdf = export_pdf(topics, plan)
-
     with open(pdf, "rb") as f:
         st.download_button("📤 Download Notes", f, pdf)
 
