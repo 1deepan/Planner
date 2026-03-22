@@ -1,0 +1,8 @@
+streamlit
+pymupdf
+python-pptx
+python-docx
+matplotlib
+scikit-learn
+reportlab
+openai
